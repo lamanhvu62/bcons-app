@@ -14,7 +14,7 @@ type LeadRow = {
   email: string | null;
   status: string;
   created_at: string;
-  projects?: { name: string } | null;
+  source: string | null;
 };
 
 export default function LeadsScreen() {
@@ -33,7 +33,7 @@ export default function LeadsScreen() {
     setError(null);
     const { data, error: queryError } = await supabase
       .from('leads')
-      .select('id, full_name, phone, email, status, created_at, projects(name)')
+      .select('id, full_name, phone, email, status, created_at, source')
       .order('created_at', { ascending: false })
       .limit(30);
 
@@ -101,9 +101,7 @@ export default function LeadsScreen() {
                 <ThemedText type="default">
                   {item.email ? `✉️ ${item.email}` : 'Chưa có email'}
                 </ThemedText>
-                <ThemedText type="default">
-                  Dự án: {item.projects?.name ?? 'Chưa gán dự án'}
-                </ThemedText>
+                <ThemedText type="default">Nguồn: {item.source ?? 'Chưa rõ nguồn'}</ThemedText>
                 <ThemedText type="default">Ngày tạo: {formatDate(item.created_at)}</ThemedText>
               </ThemedView>
             )}
