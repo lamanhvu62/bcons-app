@@ -7,23 +7,21 @@ import { useSession } from '@/hooks/use-session';
 import { formatDate } from '@/lib/format';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
 
-type LeadRow = {
+type TaskRow = {
   id: string;
-  full_name: string;
-  phone: string | null;
-  email: string | null;
-  status: string;
-  created_at: string;
-  projects?: { name: string } | null;
+  title: string;
+  due_at: string | null;
+  done: boolean;
+  leads?: { full_name: string } | null;
 };
 
-export default function LeadsScreen() {
+export default function TasksScreen() {
   const { session } = useSession();
-  const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadLeads = useCallback(async () => {
+  const loadTasks = useCallback(async () => {
     if (!hasSupabaseConfig) {
       setError('Thiếu cấu hình Supabase. Hãy thêm EXPO_PUBLIC_SUPABASE_URL và ANON_KEY.');
       return;
@@ -32,37 +30,37 @@ export default function LeadsScreen() {
     setLoading(true);
     setError(null);
     const { data, error: queryError } = await supabase
-      .from('leads')
-      .select('id, full_name, phone, email, status, created_at, projects(name)')
-      .order('created_at', { ascending: false })
+      .from('tasks')
+      .select('id, title, due_at, done, leads(full_name)')
+      .order('due_at', { ascending: true })
       .limit(30);
 
     if (queryError) {
       setError(queryError.message);
     } else {
-      setLeads(data ?? []);
+      setTasks(data ?? []);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
     if (session) {
-      void loadLeads();
+      void loadTasks();
     }
-  }, [loadLeads, session]);
+  }, [loadTasks, session]);
 
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
-        <ThemedText type="title">Leads</ThemedText>
-        <ThemedText type="default">Quản lý khách hàng tiềm năng theo dự án.</ThemedText>
+        <ThemedText type="title">Tasks</ThemedText>
+        <ThemedText type="default">Theo dõi công việc cần chăm sóc lead.</ThemedText>
       </View>
 
       {!session ? (
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">Cần đăng nhập</ThemedText>
           <ThemedText type="default">
-            Vui lòng đăng nhập ở tab Profile để xem danh sách leads.
+            Vui lòng đăng nhập ở tab Profile để xem danh sách công việc.
           </ThemedText>
         </ThemedView>
       ) : (
@@ -75,36 +73,32 @@ export default function LeadsScreen() {
           ) : null}
 
           <FlatList
-            data={leads}
+            data={tasks}
             keyExtractor={(item) => item.id}
-            refreshControl={<RefreshControl refreshing={loading} onRefresh={loadLeads} />}
+            refreshControl={<RefreshControl refreshing={loading} onRefresh={loadTasks} />}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
               !loading ? (
                 <ThemedView style={styles.card}>
-                  <ThemedText type="subtitle">Chưa có lead</ThemedText>
-                  <ThemedText type="default">Hãy tạo lead mới trên website để đồng bộ.</ThemedText>
+                  <ThemedText type="subtitle">Chưa có task</ThemedText>
+                  <ThemedText type="default">
+                    Hãy tạo task mới trên website để đồng bộ.
+                  </ThemedText>
                 </ThemedView>
               ) : null
             }
             renderItem={({ item }) => (
-              <ThemedView style={styles.leadCard}>
-                <View style={styles.leadHeader}>
-                  <ThemedText type="subtitle">{item.full_name}</ThemedText>
-                  <ThemedView style={styles.statusBadge}>
-                    <ThemedText type="defaultSemiBold">{item.status}</ThemedText>
+              <ThemedView style={styles.taskCard}>
+                <View style={styles.taskHeader}>
+                  <ThemedText type="subtitle">{item.title}</ThemedText>
+                  <ThemedView style={item.done ? styles.doneBadge : styles.todoBadge}>
+                    <ThemedText type="defaultSemiBold">{item.done ? 'Done' : 'Todo'}</ThemedText>
                   </ThemedView>
                 </View>
                 <ThemedText type="default">
-                  {item.phone ? `📞 ${item.phone}` : 'Chưa có số điện thoại'}
+                  Lead: {item.leads?.full_name ?? 'Chưa gắn lead'}
                 </ThemedText>
-                <ThemedText type="default">
-                  {item.email ? `✉️ ${item.email}` : 'Chưa có email'}
-                </ThemedText>
-                <ThemedText type="default">
-                  Dự án: {item.projects?.name ?? 'Chưa gán dự án'}
-                </ThemedText>
-                <ThemedText type="default">Ngày tạo: {formatDate(item.created_at)}</ThemedText>
+                <ThemedText type="default">Hạn: {formatDate(item.due_at)}</ThemedText>
               </ThemedView>
             )}
           />
@@ -134,23 +128,32 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,0,0,0.08)',
     gap: 6,
   },
-  leadCard: {
+  taskCard: {
     padding: 16,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
     gap: 6,
   },
-  leadHeader: {
+  taskHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  statusBadge: {
+  doneBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(0,150,0,0.12)',
+  },
+  todoBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'rgba(255,165,0,0.12)',
   },
 });
