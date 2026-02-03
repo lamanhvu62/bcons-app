@@ -1,11 +1,13 @@
+import * as Clipboard from 'expo-clipboard';
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
+import { Alert, FlatList, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSession } from '@/hooks/use-session';
 import { formatDate } from '@/lib/format';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
+import { makeCall } from '@/utils/makeCall';
 
 type LeadRow = {
   id: string;
@@ -51,6 +53,7 @@ export default function LeadsScreen() {
     }
   }, [loadLeads, session]);
 
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
@@ -61,9 +64,7 @@ export default function LeadsScreen() {
       {!session ? (
         <ThemedView style={styles.card}>
           <ThemedText type="subtitle">Cần đăng nhập</ThemedText>
-          <ThemedText type="default">
-            Vui lòng đăng nhập ở tab Profile để xem danh sách leads.
-          </ThemedText>
+          <ThemedText type="default">Vui lòng đăng nhập ở tab Profile để xem danh sách leads.</ThemedText>
         </ThemedView>
       ) : (
         <>
@@ -79,14 +80,12 @@ export default function LeadsScreen() {
             keyExtractor={(item) => item.id}
             refreshControl={<RefreshControl refreshing={loading} onRefresh={loadLeads} />}
             contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              !loading ? (
-                <ThemedView style={styles.card}>
-                  <ThemedText type="subtitle">Chưa có lead</ThemedText>
-                  <ThemedText type="default">Hãy tạo lead mới trên website để đồng bộ.</ThemedText>
-                </ThemedView>
-              ) : null
-            }
+            ListEmptyComponent={!loading ? (
+              <ThemedView style={styles.card}>
+                <ThemedText type="subtitle">Chưa có lead</ThemedText>
+                <ThemedText type="default">Hãy tạo lead mới trên website để đồng bộ.</ThemedText>
+              </ThemedView>
+            ) : null}
             renderItem={({ item }) => (
               <ThemedView style={styles.leadCard}>
                 <View style={styles.leadHeader}>
@@ -95,12 +94,38 @@ export default function LeadsScreen() {
                     <ThemedText type="defaultSemiBold">{item.status}</ThemedText>
                   </ThemedView>
                 </View>
-                <ThemedText type="default">
-                  {item.phone ? `📞 ${item.phone}` : 'Chưa có số điện thoại'}
-                </ThemedText>
-                <ThemedText type="default">
-                  {item.email ? `✉️ ${item.email}` : 'Chưa có email'}
-                </ThemedText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <ThemedText type="default">{item.phone ? `📞 ${item.phone}` : 'Chưa có số điện thoại'}</ThemedText>
+                    <View style={styles.buttonGroup}>
+                      <TouchableOpacity
+                        style={[styles.copyButton, !item.phone && styles.callButtonDisabled]}
+                        onPress={async () => {
+                          if (!item.phone) {
+                            Alert.alert('Không có số', 'Khách hàng này chưa có số điện thoại.');
+                            return;
+                          }
+                          try {
+                            await Clipboard.setStringAsync(item.phone);
+                            Alert.alert('Đã sao chép', 'Số điện thoại đã được sao chép vào bộ nhớ tạm.');
+                          } catch (err) {
+                            Alert.alert('Lỗi', 'Không thể sao chép số điện thoại.');
+                          }
+                        }}
+                        disabled={!item.phone}
+                      >
+                        <ThemedText type="defaultSemiBold">Sao chép</ThemedText>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.callButton, !item.phone && styles.callButtonDisabled]}
+                        onPress={() => makeCall(item.phone)}
+                        disabled={!item.phone}
+                      >
+                        <ThemedText type="defaultSemiBold">Gọi</ThemedText>
+                      </TouchableOpacity>
+                    </View>
+                </View>
+                <ThemedText type="default">{item.email ? `✉️ ${item.email}` : 'Chưa có email'}</ThemedText>
                 <ThemedText type="default">Nguồn: {item.source ?? 'Chưa rõ nguồn'}</ThemedText>
                 <ThemedText type="default">Ngày tạo: {formatDate(item.created_at)}</ThemedText>
               </ThemedView>
@@ -150,5 +175,29 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,0,0,0.08)',
+  },
+  callButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'transparent',
+  },
+  callButtonDisabled: {
+    opacity: 0.5,
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  copyButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)',
+    backgroundColor: 'transparent',
   },
 });

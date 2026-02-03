@@ -1,10 +1,11 @@
-import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useSession } from '@/hooks/use-session';
 import { hasSupabaseConfig, supabase } from '@/lib/supabase';
+import { getRememberDevice, setRememberDevice } from '@/utils/rememberDevice';
 
 export default function ProfileScreen() {
   const { session, loading } = useSession();
@@ -12,6 +13,7 @@ export default function ProfileScreen() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   const handleSignIn = async () => {
     if (!hasSupabaseConfig) {
@@ -21,9 +23,16 @@ export default function ProfileScreen() {
 
     setAuthLoading(true);
     setAuthError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setAuthError(error.message);
+    await setRememberDevice(remember);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setAuthError(error.message);
+      }
+    } catch (err: any) {
+      console.error('Sign-in error:', err);
+      Alert.alert('Lỗi mạng', err?.message ?? String(err));
+      setAuthError(err?.message ?? 'Lỗi mạng');
     }
     setAuthLoading(false);
   };
@@ -53,6 +62,17 @@ export default function ProfileScreen() {
     setAuthLoading(false);
   };
 
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const v = await getRememberDevice();
+      if (mounted) setRemember(v);
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
@@ -74,6 +94,10 @@ export default function ProfileScreen() {
           <ThemedText type="subtitle">Tài khoản</ThemedText>
           <ThemedText type="default">Email: {session.user.email ?? '—'}</ThemedText>
           <ThemedText type="default">User ID: {session.user.id}</ThemedText>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+            <ThemedText type="default">Nhớ thiết bị này</ThemedText>
+            <Switch value={remember} onValueChange={(v) => { setRemember(v); void setRememberDevice(v); }} />
+          </View>
           <Pressable
             onPress={handleSignOut}
             style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
@@ -128,6 +152,10 @@ export default function ProfileScreen() {
           </View>
           {authError ? <ThemedText type="default">{authError}</ThemedText> : null}
           {loading ? <ThemedText type="default">Đang kiểm tra phiên...</ThemedText> : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+            <ThemedText type="default">Nhớ thiết bị này</ThemedText>
+            <Switch value={remember} onValueChange={(v) => setRemember(v)} />
+          </View>
         </ThemedView>
       )}
     </ThemedView>

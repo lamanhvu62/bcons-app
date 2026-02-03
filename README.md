@@ -28,3 +28,14 @@
 - `npm run ios` - start on iOS simulator
 - `npm run web` - start on web
 - `npm run lint` - run lint checks
+
+## Environment
+
+Create a local `.env` in the repository root with these variables:
+
+```
+EXPO_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+```
+
+The `.env` file is ignored by git to keep secrets out of source control.
